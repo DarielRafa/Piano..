@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piano Tiles Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .info-box {
+      background: rgba(0,0,0,0.7);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    #gameContainer {
+      margin-top: 60px;
+      width: 400px;
+      height: 680px; /* 🔥 lebih tinggi sedikit */
+      border: 3px solid white;
+      border-radius: 10px;
+      background: black;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .keys {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+    }
+
+    .keys button {
+      flex: 1;
+      height: 80px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-top: 2px solid white;
+      color: white;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .keys button:nth-child(1) { background: rgba(255,0,0,0.4); }
+    .keys button:nth-child(2) { background: rgba(0,255,0,0.4); }
+    .keys button:nth-child(3) { background: rgba(0,0,255,0.4); }
+    .keys button:nth-child(4) { background: rgba(255,255,0,0.4); }
+
+    .keys button:active {
+      filter: brightness(1.4);
+    }
+
+    #missText {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      color: red;
+      font-weight: bold;
+      display: none;
+      text-shadow: 2px 2px 4px black;
+    }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <div id="time" class="info-box">Time: 60s</div>
+    <div id="score" class="info-box">Score: 0%</div>
+  </div>
+
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="400" height="680"></canvas>
+    <div id="missText">MISS</div>
+    <div class="keys">
+      <button onclick="hitKey(0)">D</button>
+      <button onclick="hitKey(1)">F</button>
+      <button onclick="hitKey(2)">J</button>
+      <button onclick="hitKey(3)">K</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const columns = 4;
+    const columnWidth = canvas.width / columns;
+    const noteHeight = 80;
+    const keysHeight = 80; 
+    const notes = [];
+    let score = 0;
+    let timeLeft = 60;
+    let gameOver = false;
+
+    const missText = document.getElementById("missText");
+
+    function spawnNote() {
+      const col = Math.floor(Math.random() * columns);
+      notes.push({ 
+        x: col * columnWidth, 
+        y: -noteHeight, 
+        width: columnWidth, 
+        height: noteHeight, 
+        col: col 
+      });
+    }
+
+    function getSpeed() {
+      return Math.min(15, 4 + score / 20);
+    }
+
+    function updateNotes() {
+      const speed = getSpeed();
+      const batasAtasKeys = canvas.height - keysHeight;
+
+      for (let note of notes) {
+        note.y += speed;
+      }
+
+      for (let i = notes.length - 1; i >= 0; i--) {
+        if (notes[i].y + notes[i].height >= batasAtasKeys) {
+          // note jatuh pas ke area tombol -> MISS
+          showMiss();
+          notes.splice(i, 1);
+        }
+      }
+    }
+
+    function drawLines() {
+      ctx.strokeStyle = "gray";
+      ctx.lineWidth = 2;
+      for (let i = 1; i < columns; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * columnWidth, 0);
+        ctx.lineTo(i * columnWidth, canvas.height);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "white";
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height - keysHeight);
+      ctx.lineTo(canvas.width, canvas.height - keysHeight);
+      ctx.stroke();
+    }
+
+    function drawNotes() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawLines();
+      ctx.fillStyle = "cyan";
+      for (let note of notes) {
+        ctx.fillRect(note.x + 2, note.y, note.width - 4, note.height);
+      }
+    }
+
+    function hitKey(column) {
+      if (gameOver) return;
+      const batasAtasKeys = canvas.height - keysHeight;
+
+      let hit = false;
+      for (let i = 0; i < notes.length; i++) {
+        let note = notes[i];
+        if (
+          note.col === column &&
+          note.y + note.height >= batasAtasKeys - 20 &&
+          note.y + note.height <= batasAtasKeys
+        ) {
+          notes.splice(i, 1);
+          score += 4;
+          document.getElementById("score").innerText = "Score: " + score + "%";
+          hit = true;
+
+          if (score >= 100) {
+            endGame("🎉 Victory! Kamu sudah mencapai 100%");
+          }
+          break;
+        }
+      }
+
+      if (!hit) {
+        showMiss();
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "d" || e.key === "D") hitKey(0);
+      if (e.key === "f" || e.key === "F") hitKey(1);
+      if (e.key === "j" || e.key === "J") hitKey(2);
+      if (e.key === "k" || e.key === "K") hitKey(3);
+    });
+
+    function showMiss() {
+      missText.style.display = "block";
+      setTimeout(() => {
+        missText.style.display = "none";
+      }, 500);
+    }
+
+    function startTimer() {
+      const timer = setInterval(() => {
+        if (gameOver) {
+          clearInterval(timer);
+          return;
+        }
+        if (timeLeft > 0) {
+          timeLeft--;
+          document.getElementById("time").innerText = "Time: " + timeLeft + "s";
+        } else {
+          clearInterval(timer);
+          if (score >= 90) {
+            endGame("🎉 Victory! Skor kamu: " + score + "%");
+          } else {
+            endGame("Game Over! Skor akhir: " + score + "%");
+          }
+        }
+      }, 1000);
+    }
+
+    function endGame(message) {
+      if (!gameOver) {
+        gameOver = true;
+        alert(message);
+      }
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+      updateNotes();
+      drawNotes();
+      requestAnimationFrame(gameLoop);
+    }
+
+    setInterval(() => {
+      if (!gameOver) spawnNote();
+    }, 800);
+
+    startTimer();
+    gameLoop();
+  </script>
+</body>
+</html>
